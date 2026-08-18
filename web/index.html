@@ -164,7 +164,8 @@ async function loadConfig() {
       ],
       open_message: g.open_message || "",
       close_message: g.close_message || "",
-      paused_until: g.paused_until || null
+      pause_from: g.pause_from || null,
+      pause_until: g.pause_until || null
     }));
     el.textContent = "Configurazione caricata.";
     el.className = "status ok";
@@ -187,7 +188,8 @@ function addGroup() {
     ],
     open_message: "🔓 Buongiorno! Il gruppo è aperto, potete scrivere liberamente.",
     close_message: "🔒 Buonanotte! Il gruppo è chiuso fino a domattina. A domani!",
-    paused_until: null
+    pause_from: null,
+    pause_until: null
   });
   render();
 }
@@ -289,18 +291,27 @@ function render() {
         <button class="btn-close" onclick="applyNow('${g.id}', 'close')">Chiudi ora</button>
       </div>
 
-      <label>Sospensione temporanea (es. ferie: chiude ora e riapre da sola alla data scelta)</label>
-      ${g.paused_until ? `
+      <label>Chiusura programmata (es. ferie: scegli quando chiude e quando riapre, anche nel futuro — se lasci vuoto "Chiude il", chiude subito)</label>
+      ${g.pause_until ? `
         <div class="muted-box" style="border-color: var(--danger); color: var(--text);">
-          Sospeso: riapre automaticamente il <b>${formatLocal(g.paused_until)}</b>
+          ${g.pause_from && new Date(g.pause_from) > new Date()
+            ? `Chiuderà automaticamente il <b>${formatLocal(g.pause_from)}</b> e riaprirà il <b>${formatLocal(g.pause_until)}</b>.`
+            : `Sospeso: riapre automaticamente il <b>${formatLocal(g.pause_until)}</b>.`}
         </div>
         <div class="row" style="margin-top:8px;">
-          <button class="btn-open" onclick="resumeGroup('${g.id}')">Riprendi subito (annulla sospensione)</button>
+          <button class="btn-open" onclick="resumeGroup('${g.id}')">Annulla e riapri subito</button>
         </div>
       ` : `
         <div class="row">
-          <input type="datetime-local" id="pause-${g.id}" style="max-width:240px;" />
-          <button class="btn-close" onclick="suspendGroup('${g.id}')">Chiudi e sospendi fino a qui</button>
+          <div>
+            <label style="margin:0;">Chiude il (vuoto = subito)</label>
+            <input type="datetime-local" id="pause-from-${g.id}" style="max-width:220px;" />
+          </div>
+          <div>
+            <label style="margin:0;">Riapre il</label>
+            <input type="datetime-local" id="pause-until-${g.id}" style="max-width:220px;" />
+          </div>
+          <button class="btn-close" onclick="suspendGroup('${g.id}')" style="align-self:flex-end;">Programma</button>
         </div>
       `}
 
@@ -324,21 +335,41 @@ function formatLocal(isoString) {
 async function suspendGroup(groupId) {
   const g = state.groups.find(x => x.id === groupId);
   const statusId = `status-${groupId}`;
-  const input = document.getElementById(`pause-${groupId}`);
-  if (!input || !input.value) {
-    setStatus(statusId, "Scegli prima la data e l'ora di riapertura.", false);
+  const fromInput = document.getElementById(`pause-from-${groupId}`);
+  const untilInput = document.getElementById(`pause-until-${groupId}`);
+  if (!untilInput || !untilInput.value) {
+    setStatus(statusId, "Scegli almeno la data e l'ora di riapertura.", false);
     return;
   }
   if (!g.chat_id) {
     setStatus(statusId, "Imposta prima il Chat ID del gruppo (e salva).", false);
     return;
   }
-  g.paused_until = new Date(input.value).toISOString();
-  setStatus(statusId, "Chiudo e salvo la sospensione...", true);
+  const now = new Date();
+  const untilDate = new Date(untilInput.value);
+  const fromDate = fromInput && fromInput.value ? new Date(fromInput.value) : null;
+  if (untilDate <= now) {
+    setStatus(statusId, "La data di riapertura deve essere nel futuro.", false);
+    return;
+  }
+  if (fromDate && fromDate >= untilDate) {
+    setStatus(statusId, "La data di chiusura deve essere prima di quella di riapertura.", false);
+    return;
+  }
+
+  g.pause_until = untilDate.toISOString();
+  const closeNow = !fromDate || fromDate <= now;
+  g.pause_from = closeNow ? null : fromDate.toISOString();
+
+  setStatus(statusId, closeNow ? "Chiudo e salvo..." : "Programmo e salvo...", true);
   try {
-    await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action: "close" }) });
+    if (closeNow) {
+      await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action: "close" }) });
+    }
     await saveConfig();
-    setStatus(statusId, "Gruppo chiuso e sospeso fino al " + formatLocal(g.paused_until) + ".", true);
+    setStatus(statusId, closeNow
+      ? "Gruppo chiuso, riapre il " + formatLocal(g.pause_until) + "."
+      : "Programmato: chiude il " + formatLocal(g.pause_from) + ", riapre il " + formatLocal(g.pause_until) + ".", true);
     render();
   } catch (e) {
     setStatus(statusId, "Errore: " + e.message, false);
@@ -348,12 +379,13 @@ async function suspendGroup(groupId) {
 async function resumeGroup(groupId) {
   const g = state.groups.find(x => x.id === groupId);
   const statusId = `status-${groupId}`;
-  g.paused_until = null;
+  g.pause_from = null;
+  g.pause_until = null;
   setStatus(statusId, "Riapro e salvo...", true);
   try {
     await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action: "open" }) });
     await saveConfig();
-    setStatus(statusId, "Sospensione annullata, gruppo riaperto.", true);
+    setStatus(statusId, "Programmazione annullata, gruppo riaperto.", true);
     render();
   } catch (e) {
     setStatus(statusId, "Errore: " + e.message, false);
@@ -387,7 +419,8 @@ async function saveConfig() {
       actions: g.actions,
       open_message: g.open_message,
       close_message: g.close_message,
-      paused_until: g.paused_until
+      pause_from: g.pause_from,
+      pause_until: g.pause_until
     }))
   };
   el.textContent = "Salvataggio...";

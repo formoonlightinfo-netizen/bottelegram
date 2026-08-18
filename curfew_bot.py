@@ -133,9 +133,7 @@ def parse_time(value: str) -> tuple[int, int]:
     return int(hh), int(mm)
 
 
-def parse_paused_until(group: dict, default_tz: str) -> Optional[datetime]:
-    """Data/ora (con timezone) fino a cui il gruppo è sospeso, o None se non in pausa."""
-    value = group.get("paused_until")
+def _parse_pause_datetime(value: Optional[str], group: dict, default_tz: str) -> Optional[datetime]:
     if not value:
         return None
     dt = datetime.fromisoformat(value)
@@ -144,13 +142,25 @@ def parse_paused_until(group: dict, default_tz: str) -> Optional[datetime]:
     return dt
 
 
+def parse_pause_window(group: dict, default_tz: str) -> tuple[Optional[datetime], Optional[datetime]]:
+    """(pause_from, pause_until): finestra di sospensione del gruppo.
+
+    pause_from assente/None = la chiusura è (o era) immediata, non programmata.
+    pause_until assente/None = nessuna sospensione attiva o programmata.
+    """
+    pause_from = _parse_pause_datetime(group.get("pause_from"), group, default_tz)
+    pause_until = _parse_pause_datetime(group.get("pause_until"), group, default_tz)
+    return pause_from, pause_until
+
+
 async def clear_pause_and_open(bot: Bot, chat_id) -> None:
-    """Chiamata alla fine di una sospensione: pulisce 'paused_until' e riapre il gruppo."""
+    """Chiamata alla fine di una sospensione: pulisce la finestra e riapre il gruppo."""
     config = load_config()
     group = find_group(config, chat_id)
     if group is None:
         return
-    group["paused_until"] = None
+    group["pause_from"] = None
+    group["pause_until"] = None
     tmp_path = CONFIG_PATH.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
     tmp_path.replace(CONFIG_PATH)
@@ -171,18 +181,29 @@ def schedule_groups(scheduler: AsyncIOScheduler, config: dict, bot: Bot) -> None
         name = group.get("name", str(group.get("chat_id")))
         chat_id = group["chat_id"]
 
-        paused_until = parse_paused_until(group, default_tz)
+        pause_from, pause_until = parse_pause_window(group, default_tz)
         now = datetime.now(ZoneInfo(group.get("timezone", default_tz)))
-        if paused_until and paused_until > now:
+        if pause_until and pause_until > now:
             scheduler.add_job(
                 clear_pause_and_open,
-                DateTrigger(run_date=paused_until),
+                DateTrigger(run_date=pause_until),
                 args=[bot, chat_id],
                 id=f"resume-{chat_id}",
                 replace_existing=True,
             )
             job_count += 1
-            log.info("Gruppo '%s' sospeso fino al %s", name, paused_until.isoformat())
+            log.info("Gruppo '%s' sospeso fino al %s", name, pause_until.isoformat())
+
+            if pause_from and pause_from > now:
+                scheduler.add_job(
+                    close_group,
+                    DateTrigger(run_date=pause_from),
+                    args=[bot, group],
+                    id=f"pause-start-{chat_id}",
+                    replace_existing=True,
+                )
+                job_count += 1
+                log.info("Gruppo '%s': chiusura programmata per il %s", name, pause_from.isoformat())
 
         for idx, action in enumerate(group.get("actions", [])):
             days = ",".join(action["days"])
@@ -191,10 +212,12 @@ def schedule_groups(scheduler: AsyncIOScheduler, config: dict, bot: Bot) -> None
             func = open_group if action["action"] == "open" else close_group
 
             async def scheduled_action(bot=bot, group=group, func=func, default_tz=default_tz) -> None:
-                pu = parse_paused_until(group, default_tz)
-                if pu and pu > datetime.now(pu.tzinfo):
-                    log.info("Gruppo '%s' in pausa: azione saltata", group.get("name"))
-                    return
+                pf, pu = parse_pause_window(group, default_tz)
+                if pu:
+                    now = datetime.now(pu.tzinfo)
+                    if now < pu and (pf is None or pf <= now):
+                        log.info("Gruppo '%s' in pausa: azione saltata", group.get("name"))
+                        return
                 await func(bot, group)
 
             scheduler.add_job(

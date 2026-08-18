@@ -66,11 +66,13 @@ per aprire/chiudere un gruppo al volo.
 - Ogni gruppo ha una lista di **azioni** indipendenti (apri/chiudi), ognuna
   con i propri giorni e il proprio orario — non devono per forza combaciare
   (es. chiude il sabato, riapre solo la domenica sera).
-- **Sospensione temporanea** (es. ferie, evento speciale): scegli data e ora
-  di riapertura e premi "Chiudi e sospendi fino a qui" — il gruppo si chiude
-  subito e resta chiuso ignorando gli orari automatici, finché non arriva
-  quel momento esatto: allora si riapre da solo automaticamente. "Riprendi
-  subito" annulla la sospensione e riapre immediatamente.
+- **Chiusura programmata** (es. ferie, evento speciale): scegli quando chiude
+  e quando riapre — anche entrambe nel futuro (es. "chiude mercoledì
+  prossimo, riapre tra due settimane"). Se lasci vuoto "Chiude il", chiude
+  subito. Nella finestra tra chiusura e riapertura gli orari automatici
+  settimanali vengono ignorati; alla data di riapertura il gruppo si riapre
+  da solo. "Annulla e riapri subito" cancella la programmazione e riapre
+  immediatamente.
 - **"Salva modifiche"** scrive la configurazione sul server: il bot si
   aggiorna da solo entro pochi secondi.
 - **"Apri ora / Chiudi ora"** applica subito l'azione al gruppo (utile per
