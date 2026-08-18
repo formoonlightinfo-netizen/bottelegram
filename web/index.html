@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Curfew Bot — Pannello</title>
 <style>
   :root {
@@ -22,6 +22,7 @@
     background: var(--bg);
     color: var(--text);
     padding: 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
   h1 { font-size: 1.3rem; margin-bottom: 4px; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
@@ -78,6 +79,7 @@
     flex-wrap: wrap; background: #0d0f15; border-radius: 6px; padding: 8px;
   }
   .schedule-row > div { min-width: 90px; }
+  .schedule-row > button { flex: 1 0 100%; margin-top: 6px; width: 100%; }
   .status { font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
   .status.ok { color: var(--ok); }
   .status.err { color: var(--danger); }
