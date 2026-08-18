@@ -81,7 +81,8 @@
   .status { font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
   .status.ok { color: var(--ok); }
   .status.err { color: var(--danger); }
-  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions button { flex: 1; min-width: 130px; text-align: center; }
   .muted-box {
     background: #0d0f15; border: 1px dashed var(--border); border-radius: 6px;
     padding: 10px; font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.5;
@@ -286,9 +287,13 @@ function render() {
       <label>Messaggio di chiusura</label>
       <textarea onchange="updateField('${g.id}', 'close_message', this.value)">${g.close_message}</textarea>
 
-      <div class="actions">
-        <button class="btn-open" onclick="applyNow('${g.id}', 'open')">Apri ora</button>
-        <button class="btn-close" onclick="applyNow('${g.id}', 'close')">Chiudi ora</button>
+      <div class="sub-panel">
+        <h4>⚡ Azione immediata</h4>
+        <p class="hint">Agisce subito sul gruppo, indipendentemente da qualunque orario.</p>
+        <div class="actions">
+          <button class="btn-open" onclick="applyNow('${g.id}', 'open')">Apri ora</button>
+          <button class="btn-close" onclick="applyNow('${g.id}', 'close')">Chiudi ora</button>
+        </div>
       </div>
 
       <div class="sub-panel">
@@ -313,17 +318,11 @@ function render() {
             <button class="btn-open" onclick="resumeGroup('${g.id}')">Annulla e riapri subito</button>
           </div>
         ` : `
-          <div class="row">
-            <div>
-              <label style="margin:0;">Chiude il (vuoto = subito)</label>
-              <input type="datetime-local" id="pause-from-${g.id}" style="max-width:220px;" />
-            </div>
-            <div>
-              <label style="margin:0;">Riapre il</label>
-              <input type="datetime-local" id="pause-until-${g.id}" style="max-width:220px;" />
-            </div>
-            <button class="btn-close" onclick="suspendGroup('${g.id}')" style="align-self:flex-end;">Programma</button>
-          </div>
+          <label style="margin-top:0;">Chiude il (vuoto = subito)</label>
+          <input type="datetime-local" id="pause-from-${g.id}" />
+          <label>Riapre il</label>
+          <input type="datetime-local" id="pause-until-${g.id}" />
+          <button class="btn-close" style="width:100%; margin-top:10px;" onclick="suspendGroup('${g.id}')">Programma</button>
         `}
       </div>
 
