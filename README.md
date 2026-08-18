@@ -2,18 +2,25 @@
 
 Apre e chiude automaticamente (o manualmente) i permessi di scrittura in uno o
 più gruppi Telegram privati, inviando un messaggio di annuncio quando il
-gruppo si apre e quando si chiude.
+gruppo si apre e quando si chiude. Include un pannello web protetto da
+password, raggiungibile da telefono, per modificare gruppi/orari/messaggi e
+per aprire/chiudere un gruppo al volo.
 
 ## Componenti
 
-- **`curfew_bot.py`** — lo scheduler che gira in continuo su un server: legge
-  la configurazione e, agli orari programmati, chiude/apre i permessi del
-  gruppo e invia i messaggi di annuncio. Supporta anche l'apertura/chiusura
-  manuale via riga di comando.
-- **`web/index.html`** — pannello di configurazione statico (nessuna build
-  richiesta): gestisci gruppi, orari e messaggi, esporta `curfew-config.json`
-  e usa i pulsanti "Apri ora / Chiudi ora" per agire subito su un gruppo.
-- **`get_chat_id.py`** — script per recuperare il chat_id reale di un gruppo.
+- **`app.py`** — il servizio che gira in continuo su Railway: espone il
+  pannello web (protetto da username/password) e, nello stesso processo, fa
+  girare lo scheduler che apre/chiude i gruppi agli orari programmati.
+  Salvare dal pannello scrive subito il file di configurazione sul server:
+  lo scheduler lo rileva entro pochi secondi, senza bisogno di redeploy.
+- **`curfew_bot.py`** — la stessa logica di scheduling, utilizzabile anche
+  da riga di comando (utile per test in locale o azioni manuali via
+  terminale). `app.py` importa le funzioni da qui.
+- **`web/index.html`** — il pannello, servito da `app.py`: gestisci gruppi,
+  orari e messaggi, premi "Salva modifiche", e usa "Apri ora / Chiudi ora"
+  per agire subito su un gruppo.
+- **`get_chat_id.py`** — script per recuperare il chat_id di un gruppo da
+  terminale (in alternativa al pulsante "Recupera Chat ID" nel pannello).
 
 ## 1. Creare il bot
 
@@ -24,33 +31,68 @@ gruppo si apre e quando si chiude.
    permesso necessario per cambiare i permessi di scrittura del gruppo
    (`setChatPermissions`), non serve per bannare singoli utenti.
 
-## 2. Trovare il Chat ID del gruppo
+## 2. Deploy su Railway
 
-Il link di invito (`t.me/+...`) **non** è il chat_id. Per recuperarlo:
+1. Crea un repository GitHub con questi file e collegalo a un nuovo progetto
+   Railway ("Deploy from GitHub repo").
+2. In Railway, scheda **Variables**, imposta:
+   - `TELEGRAM_BOT_TOKEN` = il token del bot.
+   - `PANEL_USERNAME` = l'utente per accedere al pannello (es. `admin`).
+   - `PANEL_PASSWORD` = una password per accedere al pannello.
+3. (Consigliato) Aggiungi un **Volume** al servizio (scheda "Settings" →
+   "Volumes"), mount path `/data`, e imposta la variabile
+   `CURFEW_CONFIG_PATH=/data/curfew-config.json`. Senza volume, le modifiche
+   salvate dal pannello vengono perse al prossimo redeploy del codice; con il
+   volume restano permanenti indipendentemente dai futuri aggiornamenti del
+   codice. Al primo avvio il file viene creato automaticamente copiando
+   `config/curfew-config.json` incluso nel repository.
+4. Railway rileva `Procfile` e `requirements.txt` e avvia da solo con
+   `uvicorn app:app --host 0.0.0.0 --port $PORT`.
+5. Scheda **Settings** → **Networking** → **Generate Domain**, per ottenere
+   un link pubblico tipo `https://tuoprogetto.up.railway.app`. Aprilo, inserisci
+   utente e password quando richiesti dal browser: quello è il pannello,
+   accessibile anche da telefono.
 
-1. Scrivi un messaggio qualsiasi nel gruppo (il bot deve essere già membro).
-2. Esegui:
-   ```bash
-   export TELEGRAM_BOT_TOKEN="il-tuo-token"
-   python get_chat_id.py
-   ```
-   oppure apri `web/index.html` in un browser, inserisci il token e premi
-   "Recupera Chat ID dagli ultimi messaggi".
-3. Il chat_id dei gruppi è un numero negativo lungo, tipo `-1001234567890`.
+## 3. Usare il pannello
 
-## 3. Configurare gruppi, orari e messaggi
+- Apri il link pubblico del progetto Railway (salvalo tra i preferiti del
+  telefono per accedervi rapidamente).
+- **"+ Aggiungi gruppo"** per aggiungerne uno nuovo, senza toccare quelli
+  esistenti.
+- **"Recupera Chat ID dagli ultimi messaggi"** per trovare il chat_id di un
+  gruppo appena aggiunto (il bot deve essere già membro e deve esserci
+  almeno un messaggio recente nel gruppo — il link d'invito `t.me/+...`
+  **non** è il chat_id).
+- Ogni gruppo ha una lista di **azioni** indipendenti (apri/chiudi), ognuna
+  con i propri giorni e il proprio orario — non devono per forza combaciare
+  (es. chiude il sabato, riapre solo la domenica sera).
+- **"Salva modifiche"** scrive la configurazione sul server: il bot si
+  aggiorna da solo entro pochi secondi.
+- **"Apri ora / Chiudi ora"** applica subito l'azione al gruppo (utile per
+  ferie o cambi last-minute), indipendentemente dagli orari programmati.
 
-Copia l'esempio e personalizzalo:
+## 4. Eseguire in locale (facoltativo, per test)
 
 ```bash
-cp config/curfew-config.example.json config/curfew-config.json
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export TELEGRAM_BOT_TOKEN="il-tuo-token"
+export PANEL_PASSWORD="una-password-a-scelta"
+uvicorn app:app --reload
 ```
 
-Oppure apri `web/index.html`, compila i gruppi con i loro orari e messaggi, e
-premi "Esporta curfew-config.json" — salva il file scaricato in
-`config/curfew-config.json`.
+Il pannello sarà su `http://localhost:8000`.
 
-Schema del file:
+In alternativa, solo lo scheduler da riga di comando, senza pannello web:
+
+```bash
+python curfew_bot.py --list              # elenca i gruppi configurati
+python curfew_bot.py --open -1001234567890   # apre subito un gruppo
+python curfew_bot.py --close -1001234567890  # chiude subito un gruppo
+python curfew_bot.py                     # avvia solo lo scheduler
+```
+
+## Schema della configurazione
 
 ```jsonc
 {
@@ -71,60 +113,7 @@ Schema del file:
 }
 ```
 
-Ogni gruppo ha una lista di **azioni** indipendenti (`open` o `close`), ognuna
-con i propri giorni e il proprio orario — non devono per forza combaciare
-(es. chiude il sabato, riapre solo la domenica sera). I giorni usano i codici
-a 3 lettere: `mon tue wed thu fri sat sun`.
-
-Il chat_id e i messaggi non sono dati sensibili, quindi `curfew-config.json`
-va tenuto nel repository (è quello che Railway userà al deploy). L'unico dato
-segreto è il token del bot, che non va mai scritto in questo file: resta solo
-nella variabile d'ambiente `TELEGRAM_BOT_TOKEN`.
-
-## 4. Eseguire in locale
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export TELEGRAM_BOT_TOKEN="il-tuo-token"
-python curfew_bot.py
-```
-
-Comandi utili:
-
-```bash
-python curfew_bot.py --list              # elenca i gruppi configurati
-python curfew_bot.py --open -1001234567890   # apre subito un gruppo
-python curfew_bot.py --close -1001234567890  # chiude subito un gruppo
-```
-
-Lo scheduler ricontrolla il file di configurazione ogni 30 secondi: se lo
-modifichi mentre il bot è in esecuzione, la pianificazione si aggiorna senza
-bisogno di riavviarlo.
-
-## 5. Deploy su Railway (esecuzione continua)
-
-1. Crea un repository GitHub con questi file e collegalo a un nuovo progetto
-   Railway ("Deploy from GitHub repo").
-2. In Railway, imposta le variabili d'ambiente:
-   - `TELEGRAM_BOT_TOKEN` = il token del bot (in Secrets, non nel codice).
-   - In alternativa a un volume persistente per `config/curfew-config.json`,
-     puoi impostare `CURFEW_CONFIG_JSON` con l'intero contenuto del file JSON
-     come variabile d'ambiente: più semplice da gestire su Railway, ma per
-     applicare modifiche serve un redeploy (non c'è hot-reload da file).
-3. Comando di avvio: `python curfew_bot.py`.
-4. Railway installa automaticamente le dipendenze da `requirements.txt`.
-
-Il processo resta in esecuzione e attiva apertura/chiusura agli orari
-configurati, indipendentemente dal fatto che tu abbia il browser aperto.
-
-## Note su "Apri ora / Chiudi ora" dal pannello web
-
-I pulsanti in `web/index.html` chiamano `api.telegram.org` direttamente dal
-browser: funzionano quando la pagina è servita come sito normale (in locale
-con un file `.html`, o pubblicata es. su GitHub Pages). Se li usi dentro un
-ambiente sandbox che blocca le richieste di rete verso host esterni (come un
-artifact generato in una chat), le richieste falliscono con un errore di
-fetch generico — non è un problema del token o del chat_id. In quel caso usa
-`python curfew_bot.py --open/--close CHAT_ID` dal server, che è anche il modo
-più affidabile per azioni manuali.
+I giorni usano i codici a 3 lettere: `mon tue wed thu fri sat sun`. Il file
+`config/curfew-config.json` incluso nel repository è usato come punto di
+partenza al primo avvio (o se non usi un volume); da lì in poi il pannello è
+il modo pensato per modificarlo.

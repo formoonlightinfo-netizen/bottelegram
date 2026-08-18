@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Curfew Bot — Configurazione</title>
+<title>Curfew Bot — Pannello</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -21,36 +21,36 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
-    padding: 24px;
+    padding: 20px;
   }
-  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
-  .sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 0.9rem; }
+  .sub { color: var(--muted); margin-top: 0; margin-bottom: 20px; font-size: 0.85rem; }
   .panel {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 18px;
-    margin-bottom: 20px;
+    padding: 16px;
+    margin-bottom: 18px;
     max-width: 900px;
   }
   label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
   input[type=text], input[type=number], input[type=time], textarea, select {
     width: 100%;
-    padding: 8px 10px;
+    padding: 10px;
     background: #0d0f15;
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text);
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
   textarea { resize: vertical; min-height: 60px; }
   button {
     cursor: pointer;
     border: none;
     border-radius: 6px;
-    padding: 8px 14px;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    font-size: 0.9rem;
     font-weight: 600;
   }
   .btn-primary { background: var(--accent); color: white; }
@@ -63,7 +63,7 @@
   .days label {
     display: flex; align-items: center; gap: 4px;
     background: #0d0f15; border: 1px solid var(--border);
-    padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; color: var(--text);
+    padding: 6px 9px; border-radius: 6px; font-size: 0.8rem; color: var(--text);
     margin: 0; cursor: pointer;
   }
   .group-card {
@@ -78,62 +78,49 @@
     flex-wrap: wrap; background: #0d0f15; border-radius: 6px; padding: 8px;
   }
   .schedule-row > div { min-width: 90px; }
-  .status { font-size: 0.8rem; margin-top: 8px; min-height: 18px; }
+  .status { font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
   .status.ok { color: var(--ok); }
   .status.err { color: var(--danger); }
-  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .muted-box {
     background: #0d0f15; border: 1px dashed var(--border); border-radius: 6px;
     padding: 10px; font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.5;
   }
   code { background: #0d0f15; padding: 1px 5px; border-radius: 4px; }
-  .top-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .top-actions { display: flex; gap: 10px; margin-top: 14px; position: sticky; bottom: 12px; }
+  .save-bar {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 18px; max-width: 900px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
 </style>
 </head>
 <body>
 
-<h1>Curfew Bot — Pannello di configurazione</h1>
+<h1>Curfew Bot — Pannello</h1>
 <p class="sub">
-  Configura gruppi, orari e messaggi, poi esporta <code>curfew-config.json</code> da usare con
-  <code>curfew_bot.py</code>. I pulsanti "Apri ora / Chiudi ora" chiamano direttamente l'API di
-  Telegram dal browser: funzionano solo se questa pagina è aperta come sito web normale
-  (es. servita da GitHub Pages o in locale), non dentro un ambiente sandbox che blocca le
-  richieste esterne.
+  Le modifiche si salvano direttamente sul server: premi "Salva modifiche" e il bot si
+  aggiorna da solo entro pochi secondi, senza bisogno di redeploy.
 </p>
 
-<div class="panel">
-  <h2>1. Token del bot</h2>
-  <label for="token">Token da @BotFather</label>
-  <input type="text" id="token" placeholder="123456789:AAExampleTokenNotReal" />
-  <div class="row" style="margin-top:10px;">
-    <button class="btn-ghost" onclick="testToken()">Verifica connessione</button>
-    <button class="btn-ghost" onclick="fetchChatIds()">Recupera Chat ID dagli ultimi messaggi</button>
-  </div>
-  <div id="token-status" class="status"></div>
-  <div id="chatid-results" class="muted-box" style="display:none;"></div>
-  <div class="muted-box">
-    Per trovare il chat_id di un gruppo: aggiungi il bot al gruppo, scrivi un messaggio
-    qualsiasi, poi premi "Recupera Chat ID". Il link d'invito <code>t.me/+...</code>
-    NON è il chat_id.
-  </div>
+<div class="save-bar">
+  <div id="load-status" class="status">Caricamento configurazione...</div>
+  <button class="btn-primary" onclick="saveConfig()">💾 Salva modifiche</button>
 </div>
 
 <div class="panel">
-  <h2>2. Gruppi</h2>
+  <h2>Gruppi</h2>
   <div id="groups"></div>
   <div class="top-actions">
     <button class="btn-primary" onclick="addGroup()">+ Aggiungi gruppo</button>
+    <button class="btn-ghost" onclick="fetchChatIds()">Recupera Chat ID dagli ultimi messaggi</button>
   </div>
-</div>
-
-<div class="panel">
-  <h2>3. Configurazione</h2>
-  <div class="row">
-    <button class="btn-primary" onclick="exportConfig()">Esporta curfew-config.json</button>
-    <label class="btn-ghost" style="display:inline-flex; align-items:center; padding:8px 14px;">
-      Importa config
-      <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importConfig(event)" />
-    </label>
+  <div id="chatid-results" class="muted-box" style="display:none;"></div>
+  <div class="muted-box">
+    Per trovare il chat_id di un nuovo gruppo: aggiungi il bot al gruppo, scrivi un
+    messaggio qualsiasi, poi premi "Recupera Chat ID". Il link d'invito
+    <code>t.me/+...</code> NON è il chat_id.
   </div>
 </div>
 
@@ -141,24 +128,51 @@
 const DAY_CODES = ["mon","tue","wed","thu","fri","sat","sun"];
 const DAY_LABELS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
 
-let state = {
-  timezone: "Europe/Rome",
-  groups: []
-};
+let state = { timezone: "Europe/Rome", groups: [] };
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-function getToken() { return document.getElementById("token").value.trim(); }
-
-function saveTokenLocally() {
-  localStorage.setItem("curfew_bot_token", getToken());
+async function api(path, options) {
+  const resp = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options && options.headers) }
+  });
+  if (resp.status === 401) {
+    throw new Error("Accesso negato: utente o password errati.");
+  }
+  let data = null;
+  try { data = await resp.json(); } catch (e) { /* risposta vuota */ }
+  if (!resp.ok) {
+    throw new Error((data && data.detail) || `Errore HTTP ${resp.status}`);
+  }
+  return data;
 }
-document.getElementById("token").addEventListener("input", saveTokenLocally);
-window.addEventListener("DOMContentLoaded", () => {
-  const saved = localStorage.getItem("curfew_bot_token");
-  if (saved) document.getElementById("token").value = saved;
-  addGroup(); // gruppo di esempio pronto da compilare
-});
+
+async function loadConfig() {
+  const el = document.getElementById("load-status");
+  try {
+    const data = await api("/api/config");
+    state.timezone = data.timezone || "Europe/Rome";
+    state.groups = (data.groups || []).map(g => ({
+      id: uid(),
+      name: g.name || "",
+      chat_id: g.chat_id,
+      enabled: g.enabled !== false,
+      actions: g.actions && g.actions.length ? g.actions : [
+        { action: "close", days: [...DAY_CODES], time: "22:00" },
+        { action: "open", days: [...DAY_CODES], time: "07:00" }
+      ],
+      open_message: g.open_message || "",
+      close_message: g.close_message || ""
+    }));
+    el.textContent = "Configurazione caricata.";
+    el.className = "status ok";
+    render();
+  } catch (e) {
+    el.textContent = "Errore nel caricamento: " + e.message;
+    el.className = "status err";
+  }
+}
 
 function addGroup() {
   state.groups.push({
@@ -177,6 +191,7 @@ function addGroup() {
 }
 
 function removeGroup(id) {
+  if (!confirm("Eliminare questo gruppo dalla configurazione?")) return;
   state.groups = state.groups.filter(g => g.id !== id);
   render();
 }
@@ -283,107 +298,24 @@ function setStatus(elId, message, ok) {
   el.className = "status " + (ok ? "ok" : "err");
 }
 
-async function tgCall(method, body) {
-  const token = getToken();
-  if (!token) throw new Error("Inserisci prima il token del bot.");
-  const resp = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body || {})
-  });
-  let data;
-  try {
-    data = await resp.json();
-  } catch (e) {
-    throw new Error(`Risposta non valida da Telegram (HTTP ${resp.status}). Possibile blocco di rete/CORS lato browser.`);
-  }
-  if (!data.ok) {
-    throw new Error(data.description || `Errore Telegram (HTTP ${resp.status})`);
-  }
-  return data.result;
-}
-
-const OPEN_PERMISSIONS = {
-  can_send_messages: true,
-  can_send_audios: true,
-  can_send_documents: true,
-  can_send_photos: true,
-  can_send_videos: true,
-  can_send_video_notes: true,
-  can_send_voice_notes: true,
-  can_send_polls: true,
-  can_send_other_messages: true,
-  can_add_web_page_previews: true
-};
-
-const CLOSED_PERMISSIONS = {
-  can_send_messages: false,
-  can_send_audios: false,
-  can_send_documents: false,
-  can_send_photos: false,
-  can_send_videos: false,
-  can_send_video_notes: false,
-  can_send_voice_notes: false,
-  can_send_polls: false,
-  can_send_other_messages: false,
-  can_add_web_page_previews: false
-};
-
 async function applyNow(groupId, action) {
   const g = state.groups.find(x => x.id === groupId);
   const statusId = `status-${groupId}`;
   if (!g.chat_id) {
-    setStatus(statusId, "Imposta prima il Chat ID del gruppo.", false);
+    setStatus(statusId, "Imposta prima il Chat ID del gruppo (e salva).", false);
     return;
   }
+  setStatus(statusId, "Applico...", true);
   try {
-    const chatId = Number(g.chat_id);
-    const permissions = action === "open" ? OPEN_PERMISSIONS : CLOSED_PERMISSIONS;
-    await tgCall("setChatPermissions", { chat_id: chatId, permissions });
-    const message = action === "open" ? g.open_message : g.close_message;
-    if (message) {
-      await tgCall("sendMessage", { chat_id: chatId, text: message });
-    }
+    await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action }) });
     setStatus(statusId, action === "open" ? "Gruppo aperto con successo." : "Gruppo chiuso con successo.", true);
   } catch (e) {
     setStatus(statusId, "Errore: " + e.message, false);
   }
 }
 
-async function testToken() {
-  try {
-    const me = await tgCall("getMe");
-    setStatus("token-status", `Connesso come @${me.username}`, true);
-  } catch (e) {
-    setStatus("token-status", "Errore: " + e.message, false);
-  }
-}
-
-async function fetchChatIds() {
-  const box = document.getElementById("chatid-results");
-  box.style.display = "block";
-  box.textContent = "Recupero in corso...";
-  try {
-    const updates = await tgCall("getUpdates");
-    const seen = new Map();
-    for (const u of updates) {
-      const payload = u.message || u.channel_post || u.my_chat_member || u.edited_message;
-      const chat = payload && payload.chat;
-      if (chat && !seen.has(chat.id)) seen.set(chat.id, chat);
-    }
-    if (seen.size === 0) {
-      box.textContent = "Nessuna chat trovata. Scrivi un messaggio nel gruppo (il bot deve essere già membro) e riprova.";
-      return;
-    }
-    box.innerHTML = [...seen.values()].map(c =>
-      `chat_id: <code>${c.id}</code> — ${c.title || c.username || "n/d"} (${c.type})`
-    ).join("<br/>");
-  } catch (e) {
-    box.textContent = "Errore: " + e.message;
-  }
-}
-
-function exportConfig() {
+async function saveConfig() {
+  const el = document.getElementById("load-status");
   const config = {
     timezone: state.timezone,
     groups: state.groups.map(g => ({
@@ -395,42 +327,37 @@ function exportConfig() {
       close_message: g.close_message
     }))
   };
-  const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "curfew-config.json";
-  a.click();
-  URL.revokeObjectURL(url);
+  el.textContent = "Salvataggio...";
+  el.className = "status";
+  try {
+    await api("/api/config", { method: "POST", body: JSON.stringify(config) });
+    el.textContent = "✔ Salvato. Il bot si aggiorna entro pochi secondi.";
+    el.className = "status ok";
+  } catch (e) {
+    el.textContent = "Errore nel salvataggio: " + e.message;
+    el.className = "status err";
+  }
 }
 
-function importConfig(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      state.timezone = data.timezone || "Europe/Rome";
-      state.groups = (data.groups || []).map(g => ({
-        id: uid(),
-        name: g.name || "",
-        chat_id: g.chat_id,
-        enabled: g.enabled !== false,
-        actions: g.actions || [
-          { action: "close", days: [...DAY_CODES], time: "22:00" },
-          { action: "open", days: [...DAY_CODES], time: "07:00" }
-        ],
-        open_message: g.open_message || "",
-        close_message: g.close_message || ""
-      }));
-      render();
-    } catch (e) {
-      alert("File JSON non valido: " + e.message);
+async function fetchChatIds() {
+  const box = document.getElementById("chatid-results");
+  box.style.display = "block";
+  box.textContent = "Recupero in corso...";
+  try {
+    const chats = await api("/api/chat-ids");
+    if (chats.length === 0) {
+      box.textContent = "Nessuna chat trovata. Scrivi un messaggio nel gruppo (il bot deve essere già membro) e riprova.";
+      return;
     }
-  };
-  reader.readAsText(file);
+    box.innerHTML = chats.map(c =>
+      `chat_id: <code>${c.chat_id}</code> — ${c.title} (${c.type})`
+    ).join("<br/>");
+  } catch (e) {
+    box.textContent = "Errore: " + e.message;
+  }
 }
+
+loadConfig();
 </script>
 </body>
 </html>
