@@ -87,13 +87,17 @@
     padding: 10px; font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.5;
   }
   code { background: #0d0f15; padding: 1px 5px; border-radius: 4px; }
-  .top-actions { display: flex; gap: 10px; margin-top: 14px; position: sticky; bottom: 12px; }
+  .top-actions { display: flex; gap: 10px; margin-top: 14px; }
   .save-bar {
-    position: sticky; top: 0; z-index: 5;
     background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
     padding: 12px 16px; margin-bottom: 18px; max-width: 900px;
     display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   }
+  .sub-panel {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 14px;
+  }
+  .sub-panel h4 { margin: 0 0 4px; font-size: 0.9rem; }
+  .sub-panel .hint { color: var(--muted); font-size: 0.78rem; margin: 0 0 10px; line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -282,38 +286,46 @@ function render() {
       <label>Messaggio di chiusura</label>
       <textarea onchange="updateField('${g.id}', 'close_message', this.value)">${g.close_message}</textarea>
 
-      <label>Orari (ogni riga è un'azione indipendente: puoi mettere giorni diversi per apertura e chiusura)</label>
-      ${actionsHtml}
-      <button class="btn-ghost" style="margin-top:8px;" onclick="addAction('${g.id}')">+ Aggiungi azione</button>
-
       <div class="actions">
         <button class="btn-open" onclick="applyNow('${g.id}', 'open')">Apri ora</button>
         <button class="btn-close" onclick="applyNow('${g.id}', 'close')">Chiudi ora</button>
       </div>
 
-      <label>Chiusura programmata (es. ferie: scegli quando chiude e quando riapre, anche nel futuro — se lasci vuoto "Chiude il", chiude subito)</label>
-      ${g.pause_until ? `
-        <div class="muted-box" style="border-color: var(--danger); color: var(--text);">
-          ${g.pause_from && new Date(g.pause_from) > new Date()
-            ? `Chiuderà automaticamente il <b>${formatLocal(g.pause_from)}</b> e riaprirà il <b>${formatLocal(g.pause_until)}</b>.`
-            : `Sospeso: riapre automaticamente il <b>${formatLocal(g.pause_until)}</b>.`}
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <button class="btn-open" onclick="resumeGroup('${g.id}')">Annulla e riapri subito</button>
-        </div>
-      ` : `
-        <div class="row">
-          <div>
-            <label style="margin:0;">Chiude il (vuoto = subito)</label>
-            <input type="datetime-local" id="pause-from-${g.id}" style="max-width:220px;" />
+      <div class="sub-panel">
+        <h4>🔁 Orario settimanale ricorrente</h4>
+        <p class="hint">Si ripete ogni settimana, per sempre. Ogni riga è un'azione indipendente
+          (puoi mettere giorni diversi per apertura e chiusura).</p>
+        ${actionsHtml}
+        <button class="btn-ghost" style="margin-top:8px;" onclick="addAction('${g.id}')">+ Aggiungi azione</button>
+      </div>
+
+      <div class="sub-panel">
+        <h4>📅 Chiusura da calendario (una tantum)</h4>
+        <p class="hint">Per un evento specifico (es. ferie): scegli due date precise sul
+          calendario, non si ripete. Mentre è attiva, l'orario settimanale sopra viene ignorato.</p>
+        ${g.pause_until ? `
+          <div class="muted-box" style="border-color: var(--danger); color: var(--text);">
+            ${g.pause_from && new Date(g.pause_from) > new Date()
+              ? `Chiuderà automaticamente il <b>${formatLocal(g.pause_from)}</b> e riaprirà il <b>${formatLocal(g.pause_until)}</b>.`
+              : `Chiuso: riapre automaticamente il <b>${formatLocal(g.pause_until)}</b>.`}
           </div>
-          <div>
-            <label style="margin:0;">Riapre il</label>
-            <input type="datetime-local" id="pause-until-${g.id}" style="max-width:220px;" />
+          <div class="row" style="margin-top:8px;">
+            <button class="btn-open" onclick="resumeGroup('${g.id}')">Annulla e riapri subito</button>
           </div>
-          <button class="btn-close" onclick="suspendGroup('${g.id}')" style="align-self:flex-end;">Programma</button>
-        </div>
-      `}
+        ` : `
+          <div class="row">
+            <div>
+              <label style="margin:0;">Chiude il (vuoto = subito)</label>
+              <input type="datetime-local" id="pause-from-${g.id}" style="max-width:220px;" />
+            </div>
+            <div>
+              <label style="margin:0;">Riapre il</label>
+              <input type="datetime-local" id="pause-until-${g.id}" style="max-width:220px;" />
+            </div>
+            <button class="btn-close" onclick="suspendGroup('${g.id}')" style="align-self:flex-end;">Programma</button>
+          </div>
+        `}
+      </div>
 
       <div class="status" id="status-${g.id}"></div>
     `;
