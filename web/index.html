@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Curfew Bot — Configurazione</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --border: #2a2e3a;
+    --text: #e8e9ee;
+    --muted: #9298a8;
+    --accent: #5b8cff;
+    --danger: #ff6b6b;
+    --ok: #4dd08a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 0.9rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 20px;
+    max-width: 900px;
+  }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=number], input[type=time], textarea, select {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-open { background: var(--ok); color: #06301c; }
+  .btn-close { background: var(--danger); color: #3a0d0d; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .days { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .days label {
+    display: flex; align-items: center; gap: 4px;
+    background: #0d0f15; border: 1px solid var(--border);
+    padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; color: var(--text);
+    margin: 0; cursor: pointer;
+  }
+  .group-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .group-card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .schedule-row {
+    display: flex; gap: 8px; align-items: center; margin-top: 8px;
+    flex-wrap: wrap; background: #0d0f15; border-radius: 6px; padding: 8px;
+  }
+  .schedule-row > div { min-width: 90px; }
+  .status { font-size: 0.8rem; margin-top: 8px; min-height: 18px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .muted-box {
+    background: #0d0f15; border: 1px dashed var(--border); border-radius: 6px;
+    padding: 10px; font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.5;
+  }
+  code { background: #0d0f15; padding: 1px 5px; border-radius: 4px; }
+  .top-actions { display: flex; gap: 10px; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<h1>Curfew Bot — Pannello di configurazione</h1>
+<p class="sub">
+  Configura gruppi, orari e messaggi, poi esporta <code>curfew-config.json</code> da usare con
+  <code>curfew_bot.py</code>. I pulsanti "Apri ora / Chiudi ora" chiamano direttamente l'API di
+  Telegram dal browser: funzionano solo se questa pagina è aperta come sito web normale
+  (es. servita da GitHub Pages o in locale), non dentro un ambiente sandbox che blocca le
+  richieste esterne.
+</p>
+
+<div class="panel">
+  <h2>1. Token del bot</h2>
+  <label for="token">Token da @BotFather</label>
+  <input type="text" id="token" placeholder="123456789:AAExampleTokenNotReal" />
+  <div class="row" style="margin-top:10px;">
+    <button class="btn-ghost" onclick="testToken()">Verifica connessione</button>
+    <button class="btn-ghost" onclick="fetchChatIds()">Recupera Chat ID dagli ultimi messaggi</button>
+  </div>
+  <div id="token-status" class="status"></div>
+  <div id="chatid-results" class="muted-box" style="display:none;"></div>
+  <div class="muted-box">
+    Per trovare il chat_id di un gruppo: aggiungi il bot al gruppo, scrivi un messaggio
+    qualsiasi, poi premi "Recupera Chat ID". Il link d'invito <code>t.me/+...</code>
+    NON è il chat_id.
+  </div>
+</div>
+
+<div class="panel">
+  <h2>2. Gruppi</h2>
+  <div id="groups"></div>
+  <div class="top-actions">
+    <button class="btn-primary" onclick="addGroup()">+ Aggiungi gruppo</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>3. Configurazione</h2>
+  <div class="row">
+    <button class="btn-primary" onclick="exportConfig()">Esporta curfew-config.json</button>
+    <label class="btn-ghost" style="display:inline-flex; align-items:center; padding:8px 14px;">
+      Importa config
+      <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importConfig(event)" />
+    </label>
+  </div>
+</div>
+
+<script>
+const DAY_CODES = ["mon","tue","wed","thu","fri","sat","sun"];
+const DAY_LABELS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+
+let state = {
+  timezone: "Europe/Rome",
+  groups: []
+};
+
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+function getToken() { return document.getElementById("token").value.trim(); }
+
+function saveTokenLocally() {
+  localStorage.setItem("curfew_bot_token", getToken());
+}
+document.getElementById("token").addEventListener("input", saveTokenLocally);
+window.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem("curfew_bot_token");
+  if (saved) document.getElementById("token").value = saved;
+  addGroup(); // gruppo di esempio pronto da compilare
+});
+
+function addGroup() {
+  state.groups.push({
+    id: uid(),
+    name: "",
+    chat_id: "",
+    enabled: true,
+    schedules: [{ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" }],
+    open_message: "🔓 Buongiorno! Il gruppo è aperto, potete scrivere liberamente.",
+    close_message: "🔒 Buonanotte! Il gruppo è chiuso fino a domattina. A domani!"
+  });
+  render();
+}
+
+function removeGroup(id) {
+  state.groups = state.groups.filter(g => g.id !== id);
+  render();
+}
+
+function addSchedule(groupId) {
+  const g = state.groups.find(x => x.id === groupId);
+  g.schedules.push({ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" });
+  render();
+}
+
+function removeSchedule(groupId, idx) {
+  const g = state.groups.find(x => x.id === groupId);
+  g.schedules.splice(idx, 1);
+  render();
+}
+
+function updateField(groupId, field, value) {
+  const g = state.groups.find(x => x.id === groupId);
+  g[field] = value;
+}
+
+function updateSchedule(groupId, idx, field, value) {
+  const g = state.groups.find(x => x.id === groupId);
+  g.schedules[idx][field] = value;
+}
+
+function toggleDay(groupId, idx, day) {
+  const g = state.groups.find(x => x.id === groupId);
+  const days = g.schedules[idx].days;
+  const pos = days.indexOf(day);
+  if (pos >= 0) days.splice(pos, 1); else days.push(day);
+}
+
+function render() {
+  const container = document.getElementById("groups");
+  container.innerHTML = "";
+  state.groups.forEach(g => {
+    const card = document.createElement("div");
+    card.className = "group-card";
+
+    const schedulesHtml = g.schedules.map((s, idx) => `
+      <div class="schedule-row">
+        <div class="days">
+          ${DAY_CODES.map((d, i) => `
+            <label>
+              <input type="checkbox" ${s.days.includes(d) ? "checked" : ""}
+                onchange="toggleDay('${g.id}', ${idx}, '${d}')" />
+              ${DAY_LABELS[i]}
+            </label>
+          `).join("")}
+        </div>
+        <div>
+          <label style="margin:0;">Apertura</label>
+          <input type="time" value="${s.open_time}" onchange="updateSchedule('${g.id}', ${idx}, 'open_time', this.value)" />
+        </div>
+        <div>
+          <label style="margin:0;">Chiusura</label>
+          <input type="time" value="${s.close_time}" onchange="updateSchedule('${g.id}', ${idx}, 'close_time', this.value)" />
+        </div>
+        <button class="btn-danger" onclick="removeSchedule('${g.id}', ${idx})">Rimuovi</button>
+      </div>
+    `).join("");
+
+    card.innerHTML = `
+      <div class="row" style="justify-content:space-between;">
+        <h3>${g.name || "Nuovo gruppo"}</h3>
+        <button class="btn-danger" onclick="removeGroup('${g.id}')">Elimina gruppo</button>
+      </div>
+
+      <label>Nome (solo per riferimento)</label>
+      <input type="text" value="${g.name}" placeholder="Gruppo Famiglia"
+        onchange="updateField('${g.id}', 'name', this.value); render();" />
+
+      <label>Chat ID (es. -1001234567890)</label>
+      <input type="text" value="${g.chat_id}" placeholder="-1001234567890"
+        onchange="updateField('${g.id}', 'chat_id', this.value)" />
+
+      <label>Messaggio di apertura</label>
+      <textarea onchange="updateField('${g.id}', 'open_message', this.value)">${g.open_message}</textarea>
+
+      <label>Messaggio di chiusura</label>
+      <textarea onchange="updateField('${g.id}', 'close_message', this.value)">${g.close_message}</textarea>
+
+      <label>Orari</label>
+      ${schedulesHtml}
+      <button class="btn-ghost" style="margin-top:8px;" onclick="addSchedule('${g.id}')">+ Aggiungi fascia oraria</button>
+
+      <div class="actions">
+        <button class="btn-open" onclick="applyNow('${g.id}', 'open')">Apri ora</button>
+        <button class="btn-close" onclick="applyNow('${g.id}', 'close')">Chiudi ora</button>
+      </div>
+      <div class="status" id="status-${g.id}"></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function setStatus(elId, message, ok) {
+  const el = document.getElementById(elId);
+  el.textContent = message;
+  el.className = "status " + (ok ? "ok" : "err");
+}
+
+async function tgCall(method, body) {
+  const token = getToken();
+  if (!token) throw new Error("Inserisci prima il token del bot.");
+  const resp = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
+  });
+  let data;
+  try {
+    data = await resp.json();
+  } catch (e) {
+    throw new Error(`Risposta non valida da Telegram (HTTP ${resp.status}). Possibile blocco di rete/CORS lato browser.`);
+  }
+  if (!data.ok) {
+    throw new Error(data.description || `Errore Telegram (HTTP ${resp.status})`);
+  }
+  return data.result;
+}
+
+const OPEN_PERMISSIONS = {
+  can_send_messages: true,
+  can_send_audios: true,
+  can_send_documents: true,
+  can_send_photos: true,
+  can_send_videos: true,
+  can_send_video_notes: true,
+  can_send_voice_notes: true,
+  can_send_polls: true,
+  can_send_other_messages: true,
+  can_add_web_page_previews: true
+};
+
+const CLOSED_PERMISSIONS = {
+  can_send_messages: false,
+  can_send_audios: false,
+  can_send_documents: false,
+  can_send_photos: false,
+  can_send_videos: false,
+  can_send_video_notes: false,
+  can_send_voice_notes: false,
+  can_send_polls: false,
+  can_send_other_messages: false,
+  can_add_web_page_previews: false
+};
+
+async function applyNow(groupId, action) {
+  const g = state.groups.find(x => x.id === groupId);
+  const statusId = `status-${groupId}`;
+  if (!g.chat_id) {
+    setStatus(statusId, "Imposta prima il Chat ID del gruppo.", false);
+    return;
+  }
+  try {
+    const chatId = Number(g.chat_id);
+    const permissions = action === "open" ? OPEN_PERMISSIONS : CLOSED_PERMISSIONS;
+    await tgCall("setChatPermissions", { chat_id: chatId, permissions });
+    const message = action === "open" ? g.open_message : g.close_message;
+    if (message) {
+      await tgCall("sendMessage", { chat_id: chatId, text: message });
+    }
+    setStatus(statusId, action === "open" ? "Gruppo aperto con successo." : "Gruppo chiuso con successo.", true);
+  } catch (e) {
+    setStatus(statusId, "Errore: " + e.message, false);
+  }
+}
+
+async function testToken() {
+  try {
+    const me = await tgCall("getMe");
+    setStatus("token-status", `Connesso come @${me.username}`, true);
+  } catch (e) {
+    setStatus("token-status", "Errore: " + e.message, false);
+  }
+}
+
+async function fetchChatIds() {
+  const box = document.getElementById("chatid-results");
+  box.style.display = "block";
+  box.textContent = "Recupero in corso...";
+  try {
+    const updates = await tgCall("getUpdates");
+    const seen = new Map();
+    for (const u of updates) {
+      const payload = u.message || u.channel_post || u.my_chat_member || u.edited_message;
+      const chat = payload && payload.chat;
+      if (chat && !seen.has(chat.id)) seen.set(chat.id, chat);
+    }
+    if (seen.size === 0) {
+      box.textContent = "Nessuna chat trovata. Scrivi un messaggio nel gruppo (il bot deve essere già membro) e riprova.";
+      return;
+    }
+    box.innerHTML = [...seen.values()].map(c =>
+      `chat_id: <code>${c.id}</code> — ${c.title || c.username || "n/d"} (${c.type})`
+    ).join("<br/>");
+  } catch (e) {
+    box.textContent = "Errore: " + e.message;
+  }
+}
+
+function exportConfig() {
+  const config = {
+    timezone: state.timezone,
+    groups: state.groups.map(g => ({
+      name: g.name,
+      chat_id: Number(g.chat_id),
+      enabled: g.enabled,
+      schedules: g.schedules,
+      open_message: g.open_message,
+      close_message: g.close_message
+    }))
+  };
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "curfew-config.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importConfig(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      state.timezone = data.timezone || "Europe/Rome";
+      state.groups = (data.groups || []).map(g => ({
+        id: uid(),
+        name: g.name || "",
+        chat_id: g.chat_id,
+        enabled: g.enabled !== false,
+        schedules: g.schedules || [{ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" }],
+        open_message: g.open_message || "",
+        close_message: g.close_message || ""
+      }));
+      render();
+    } catch (e) {
+      alert("File JSON non valido: " + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>
