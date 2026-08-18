@@ -108,9 +108,10 @@ async def shutdown() -> None:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index() -> str:
+async def index() -> HTMLResponse:
     html_path = Path(__file__).parent / "web" / "index.html"
-    return html_path.read_text(encoding="utf-8")
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+    return HTMLResponse(html_path.read_text(encoding="utf-8"), headers=headers)
 
 
 @app.get("/api/config")
