@@ -166,7 +166,10 @@ function addGroup() {
     name: "",
     chat_id: "",
     enabled: true,
-    schedules: [{ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" }],
+    actions: [
+      { action: "close", days: [...DAY_CODES], time: "22:00" },
+      { action: "open", days: [...DAY_CODES], time: "07:00" }
+    ],
     open_message: "🔓 Buongiorno! Il gruppo è aperto, potete scrivere liberamente.",
     close_message: "🔒 Buonanotte! Il gruppo è chiuso fino a domattina. A domani!"
   });
@@ -178,15 +181,15 @@ function removeGroup(id) {
   render();
 }
 
-function addSchedule(groupId) {
+function addAction(groupId) {
   const g = state.groups.find(x => x.id === groupId);
-  g.schedules.push({ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" });
+  g.actions.push({ action: "close", days: [...DAY_CODES], time: "12:00" });
   render();
 }
 
-function removeSchedule(groupId, idx) {
+function removeAction(groupId, idx) {
   const g = state.groups.find(x => x.id === groupId);
-  g.schedules.splice(idx, 1);
+  g.actions.splice(idx, 1);
   render();
 }
 
@@ -195,14 +198,14 @@ function updateField(groupId, field, value) {
   g[field] = value;
 }
 
-function updateSchedule(groupId, idx, field, value) {
+function updateAction(groupId, idx, field, value) {
   const g = state.groups.find(x => x.id === groupId);
-  g.schedules[idx][field] = value;
+  g.actions[idx][field] = value;
 }
 
 function toggleDay(groupId, idx, day) {
   const g = state.groups.find(x => x.id === groupId);
-  const days = g.schedules[idx].days;
+  const days = g.actions[idx].days;
   const pos = days.indexOf(day);
   if (pos >= 0) days.splice(pos, 1); else days.push(day);
 }
@@ -214,26 +217,29 @@ function render() {
     const card = document.createElement("div");
     card.className = "group-card";
 
-    const schedulesHtml = g.schedules.map((s, idx) => `
+    const actionsHtml = g.actions.map((a, idx) => `
       <div class="schedule-row">
+        <div>
+          <label style="margin:0;">Azione</label>
+          <select onchange="updateAction('${g.id}', ${idx}, 'action', this.value)">
+            <option value="close" ${a.action === "close" ? "selected" : ""}>Chiudi</option>
+            <option value="open" ${a.action === "open" ? "selected" : ""}>Apri</option>
+          </select>
+        </div>
         <div class="days">
           ${DAY_CODES.map((d, i) => `
             <label>
-              <input type="checkbox" ${s.days.includes(d) ? "checked" : ""}
+              <input type="checkbox" ${a.days.includes(d) ? "checked" : ""}
                 onchange="toggleDay('${g.id}', ${idx}, '${d}')" />
               ${DAY_LABELS[i]}
             </label>
           `).join("")}
         </div>
         <div>
-          <label style="margin:0;">Apertura</label>
-          <input type="time" value="${s.open_time}" onchange="updateSchedule('${g.id}', ${idx}, 'open_time', this.value)" />
+          <label style="margin:0;">Ora</label>
+          <input type="time" value="${a.time}" onchange="updateAction('${g.id}', ${idx}, 'time', this.value)" />
         </div>
-        <div>
-          <label style="margin:0;">Chiusura</label>
-          <input type="time" value="${s.close_time}" onchange="updateSchedule('${g.id}', ${idx}, 'close_time', this.value)" />
-        </div>
-        <button class="btn-danger" onclick="removeSchedule('${g.id}', ${idx})">Rimuovi</button>
+        <button class="btn-danger" onclick="removeAction('${g.id}', ${idx})">Rimuovi</button>
       </div>
     `).join("");
 
@@ -257,9 +263,9 @@ function render() {
       <label>Messaggio di chiusura</label>
       <textarea onchange="updateField('${g.id}', 'close_message', this.value)">${g.close_message}</textarea>
 
-      <label>Orari</label>
-      ${schedulesHtml}
-      <button class="btn-ghost" style="margin-top:8px;" onclick="addSchedule('${g.id}')">+ Aggiungi fascia oraria</button>
+      <label>Orari (ogni riga è un'azione indipendente: puoi mettere giorni diversi per apertura e chiusura)</label>
+      ${actionsHtml}
+      <button class="btn-ghost" style="margin-top:8px;" onclick="addAction('${g.id}')">+ Aggiungi azione</button>
 
       <div class="actions">
         <button class="btn-open" onclick="applyNow('${g.id}', 'open')">Apri ora</button>
@@ -384,7 +390,7 @@ function exportConfig() {
       name: g.name,
       chat_id: Number(g.chat_id),
       enabled: g.enabled,
-      schedules: g.schedules,
+      actions: g.actions,
       open_message: g.open_message,
       close_message: g.close_message
     }))
@@ -411,7 +417,10 @@ function importConfig(event) {
         name: g.name || "",
         chat_id: g.chat_id,
         enabled: g.enabled !== false,
-        schedules: g.schedules || [{ days: [...DAY_CODES], open_time: "07:00", close_time: "22:00" }],
+        actions: g.actions || [
+          { action: "close", days: [...DAY_CODES], time: "22:00" },
+          { action: "open", days: [...DAY_CODES], time: "07:00" }
+        ],
         open_message: g.open_message || "",
         close_message: g.close_message || ""
       }));

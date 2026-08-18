@@ -60,9 +60,9 @@ Schema del file:
       "name": "Gruppo Famiglia",
       "chat_id": -1001234567890,
       "enabled": true,
-      "schedules": [
-        { "days": ["mon","tue","wed","thu","fri"], "open_time": "07:00", "close_time": "22:00" },
-        { "days": ["sat","sun"], "open_time": "08:00", "close_time": "23:30" }
+      "actions": [
+        { "action": "close", "days": ["sat"], "time": "12:00" },
+        { "action": "open", "days": ["sun"], "time": "20:00" }
       ],
       "open_message": "🔓 Buongiorno! Il gruppo è aperto.",
       "close_message": "🔒 Buonanotte! Il gruppo è chiuso fino a domattina."
@@ -71,8 +71,15 @@ Schema del file:
 }
 ```
 
-Un gruppo può avere più fasce orarie (es. orari diversi nel weekend). I
-giorni usano i codici a 3 lettere: `mon tue wed thu fri sat sun`.
+Ogni gruppo ha una lista di **azioni** indipendenti (`open` o `close`), ognuna
+con i propri giorni e il proprio orario — non devono per forza combaciare
+(es. chiude il sabato, riapre solo la domenica sera). I giorni usano i codici
+a 3 lettere: `mon tue wed thu fri sat sun`.
+
+Il chat_id e i messaggi non sono dati sensibili, quindi `curfew-config.json`
+va tenuto nel repository (è quello che Railway userà al deploy). L'unico dato
+segreto è il token del bot, che non va mai scritto in questo file: resta solo
+nella variabile d'ambiente `TELEGRAM_BOT_TOKEN`.
 
 ## 4. Eseguire in locale
 

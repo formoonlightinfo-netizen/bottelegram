@@ -1,0 +1,16 @@
+{
+  "timezone": "Europe/Rome",
+  "groups": [
+    {
+      "name": "Prova",
+      "chat_id": -1004375288901,
+      "enabled": true,
+      "actions": [
+        { "action": "close", "days": ["sat"], "time": "12:00" },
+        { "action": "open", "days": ["sun"], "time": "20:00" }
+      ],
+      "open_message": "🔓 Il gruppo è aperto! Potete scrivere liberamente.",
+      "close_message": "🔒 Il gruppo è chiuso. Ci si risente alla riapertura!"
+    }
+  ]
+}

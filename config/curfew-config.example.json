@@ -5,12 +5,9 @@
       "name": "Gruppo Famiglia",
       "chat_id": -1001234567890,
       "enabled": true,
-      "schedules": [
-        {
-          "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-          "open_time": "07:00",
-          "close_time": "22:00"
-        }
+      "actions": [
+        { "action": "close", "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], "time": "22:00" },
+        { "action": "open", "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], "time": "07:00" }
       ],
       "open_message": "🔓 Buongiorno! Il gruppo è aperto, potete scrivere liberamente.",
       "close_message": "🔒 Buonanotte! Il gruppo è chiuso fino a domattina alle 07:00. A domani!",

@@ -141,30 +141,23 @@ def schedule_groups(scheduler: AsyncIOScheduler, config: dict, bot: Bot) -> None
         if not group.get("enabled", True):
             continue
         name = group.get("name", str(group.get("chat_id")))
-        for idx, rule in enumerate(group.get("schedules", [])):
-            days = ",".join(rule["days"])
-            open_h, open_m = parse_time(rule["open_time"])
-            close_h, close_m = parse_time(rule["close_time"])
-            tz = rule.get("timezone", default_tz)
+        for idx, action in enumerate(group.get("actions", [])):
+            days = ",".join(action["days"])
+            hour, minute = parse_time(action["time"])
+            tz = action.get("timezone", default_tz)
+            func = open_group if action["action"] == "open" else close_group
 
             scheduler.add_job(
-                open_group,
-                CronTrigger(day_of_week=days, hour=open_h, minute=open_m, timezone=tz),
+                func,
+                CronTrigger(day_of_week=days, hour=hour, minute=minute, timezone=tz),
                 args=[bot, group],
-                id=f"open-{group['chat_id']}-{idx}",
+                id=f"{action['action']}-{group['chat_id']}-{idx}",
                 replace_existing=True,
             )
-            scheduler.add_job(
-                close_group,
-                CronTrigger(day_of_week=days, hour=close_h, minute=close_m, timezone=tz),
-                args=[bot, group],
-                id=f"close-{group['chat_id']}-{idx}",
-                replace_existing=True,
-            )
-            job_count += 2
+            job_count += 1
             log.info(
-                "Gruppo '%s': apertura %s, chiusura %s (giorni: %s, tz: %s)",
-                name, rule["open_time"], rule["close_time"], days, tz,
+                "Gruppo '%s': %s alle %s (giorni: %s, tz: %s)",
+                name, action["action"], action["time"], days, tz,
             )
     log.info("Pianificati %d job su %d gruppi", job_count, len(config.get("groups", [])))
 
@@ -219,8 +212,8 @@ def list_groups(config: dict) -> None:
     for group in groups:
         status = "attivo" if group.get("enabled", True) else "disattivato"
         print(f"- {group.get('name', 'senza nome')} (chat_id: {group['chat_id']}, {status})")
-        for rule in group.get("schedules", []):
-            print(f"    apertura {rule['open_time']} / chiusura {rule['close_time']} — giorni: {', '.join(rule['days'])}")
+        for action in group.get("actions", []):
+            print(f"    {action['action']} alle {action['time']} — giorni: {', '.join(action['days'])}")
 
 
 async def main() -> None:
