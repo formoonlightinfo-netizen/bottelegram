@@ -17,11 +17,14 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from telegram import Bot, ChatPermissions
 from telegram.error import TelegramError
 
@@ -130,6 +133,31 @@ def parse_time(value: str) -> tuple[int, int]:
     return int(hh), int(mm)
 
 
+def parse_paused_until(group: dict, default_tz: str) -> Optional[datetime]:
+    """Data/ora (con timezone) fino a cui il gruppo è sospeso, o None se non in pausa."""
+    value = group.get("paused_until")
+    if not value:
+        return None
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo(group.get("timezone", default_tz)))
+    return dt
+
+
+async def clear_pause_and_open(bot: Bot, chat_id) -> None:
+    """Chiamata alla fine di una sospensione: pulisce 'paused_until' e riapre il gruppo."""
+    config = load_config()
+    group = find_group(config, chat_id)
+    if group is None:
+        return
+    group["paused_until"] = None
+    tmp_path = CONFIG_PATH.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(CONFIG_PATH)
+    log.info("Sospensione terminata per '%s', riapro", group.get("name", chat_id))
+    await open_group(bot, group)
+
+
 def create_scheduler(config: dict) -> AsyncIOScheduler:
     return AsyncIOScheduler(timezone=config.get("timezone", DEFAULT_TIMEZONE))
 
@@ -141,17 +169,38 @@ def schedule_groups(scheduler: AsyncIOScheduler, config: dict, bot: Bot) -> None
         if not group.get("enabled", True):
             continue
         name = group.get("name", str(group.get("chat_id")))
+        chat_id = group["chat_id"]
+
+        paused_until = parse_paused_until(group, default_tz)
+        now = datetime.now(ZoneInfo(group.get("timezone", default_tz)))
+        if paused_until and paused_until > now:
+            scheduler.add_job(
+                clear_pause_and_open,
+                DateTrigger(run_date=paused_until),
+                args=[bot, chat_id],
+                id=f"resume-{chat_id}",
+                replace_existing=True,
+            )
+            job_count += 1
+            log.info("Gruppo '%s' sospeso fino al %s", name, paused_until.isoformat())
+
         for idx, action in enumerate(group.get("actions", [])):
             days = ",".join(action["days"])
             hour, minute = parse_time(action["time"])
             tz = action.get("timezone", default_tz)
             func = open_group if action["action"] == "open" else close_group
 
+            async def scheduled_action(bot=bot, group=group, func=func, default_tz=default_tz) -> None:
+                pu = parse_paused_until(group, default_tz)
+                if pu and pu > datetime.now(pu.tzinfo):
+                    log.info("Gruppo '%s' in pausa: azione saltata", group.get("name"))
+                    return
+                await func(bot, group)
+
             scheduler.add_job(
-                func,
+                scheduled_action,
                 CronTrigger(day_of_week=days, hour=hour, minute=minute, timezone=tz),
-                args=[bot, group],
-                id=f"{action['action']}-{group['chat_id']}-{idx}",
+                id=f"{action['action']}-{chat_id}-{idx}",
                 replace_existing=True,
             )
             job_count += 1
