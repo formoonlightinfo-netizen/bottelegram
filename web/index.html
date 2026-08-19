@@ -36,7 +36,7 @@
     max-width: 900px;
   }
   label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
-  input[type=text], input[type=number], input[type=time], textarea, select {
+  input[type=text], input[type=password], input[type=number], input[type=time], input[type=datetime-local], textarea, select {
     width: 100%;
     padding: 10px;
     background: #0d0f15;
@@ -107,12 +107,30 @@
 
 <h1>Curfew Bot — Pannello</h1>
 <p class="sub">
-  Le modifiche si salvano direttamente sul server: premi "Salva modifiche" e il bot si
-  aggiorna da solo entro pochi secondi, senza bisogno di redeploy.
+  Funziona interamente dal browser, senza server: le modifiche si salvano direttamente
+  su GitHub, e il bot (che gira gratis su GitHub Actions ogni ~15 minuti) le applica da solo.
 </p>
 
+<div class="panel">
+  <h2>Accesso</h2>
+  <label>Token del bot Telegram (da @BotFather)</label>
+  <input type="password" id="tg-token" placeholder="123456789:AA..." />
+  <label>Token GitHub (per salvare le modifiche)</label>
+  <input type="password" id="gh-token" placeholder="ghp_... o github_pat_..." />
+  <div class="row" style="margin-top:10px;">
+    <button class="btn-ghost" onclick="loadConfig()">Carica configurazione</button>
+  </div>
+  <div id="load-status" class="status"></div>
+  <div class="muted-box">
+    Il token GitHub serve solo per leggere/scrivere <code>config/curfew-config.json</code> in questo
+    repository. Si crea una volta sola su GitHub: Impostazioni account → Developer settings →
+    Personal access tokens → Fine-grained tokens → scegli questo repository → permesso
+    "Contents: Read and write". Entrambi i token restano salvati solo su questo telefono/browser.
+  </div>
+</div>
+
 <div class="save-bar">
-  <div id="load-status" class="status">Caricamento configurazione...</div>
+  <div id="save-status" class="status">Nessuna modifica da salvare.</div>
   <button class="btn-primary" onclick="saveConfig()">💾 Salva modifiche</button>
 </div>
 
@@ -135,32 +153,77 @@
 const DAY_CODES = ["mon","tue","wed","thu","fri","sat","sun"];
 const DAY_LABELS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
 
+const GH_OWNER = "formoonlightinfo-netizen";
+const GH_REPO = "bottelegram";
+const GH_BRANCH = "claude/telegram-curfew-bot-e6zdgp";
+const GH_PATH = "config/curfew-config.json";
+
 let state = { timezone: "Europe/Rome", groups: [] };
+let currentFileSha = null;
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-async function api(path, options) {
-  const resp = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options && options.headers) }
+function tgToken() { return document.getElementById("tg-token").value.trim(); }
+function ghToken() { return document.getElementById("gh-token").value.trim(); }
+
+function saveTokensLocally() {
+  localStorage.setItem("curfew_tg_token", tgToken());
+  localStorage.setItem("curfew_gh_token", ghToken());
+}
+document.getElementById("tg-token").addEventListener("input", saveTokensLocally);
+document.getElementById("gh-token").addEventListener("input", saveTokensLocally);
+
+function utf8ToBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function base64ToUtf8(b64) {
+  return decodeURIComponent(escape(atob(b64.replace(/\n/g, ""))));
+}
+
+async function tgCall(method, body) {
+  const token = tgToken();
+  if (!token) throw new Error("Inserisci prima il token del bot Telegram.");
+  const resp = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
   });
-  if (resp.status === 401) {
-    throw new Error("Accesso negato: utente o password errati.");
+  let data;
+  try { data = await resp.json(); } catch (e) {
+    throw new Error(`Risposta non valida da Telegram (HTTP ${resp.status}).`);
   }
-  let data = null;
-  try { data = await resp.json(); } catch (e) { /* risposta vuota */ }
-  if (!resp.ok) {
-    throw new Error((data && data.detail) || `Errore HTTP ${resp.status}`);
-  }
+  if (!data.ok) throw new Error(data.description || `Errore Telegram (HTTP ${resp.status})`);
+  return data.result;
+}
+
+async function ghCall(method, body) {
+  const token = ghToken();
+  if (!token) throw new Error("Inserisci prima il token GitHub.");
+  const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+  const resp = await fetch(method === "GET" ? `${url}?ref=${GH_BRANCH}` : url, {
+    method,
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.message || `Errore GitHub (HTTP ${resp.status})`);
   return data;
 }
 
 async function loadConfig() {
   const el = document.getElementById("load-status");
+  el.textContent = "Caricamento...";
+  el.className = "status";
   try {
-    const data = await api("/api/config");
-    state.timezone = data.timezone || "Europe/Rome";
-    state.groups = (data.groups || []).map(g => ({
+    const data = await ghCall("GET");
+    currentFileSha = data.sha;
+    const config = JSON.parse(base64ToUtf8(data.content));
+    state.timezone = config.timezone || "Europe/Rome";
+    state.groups = (config.groups || []).map(g => ({
       id: uid(),
       name: g.name || "",
       chat_id: g.chat_id,
@@ -174,7 +237,7 @@ async function loadConfig() {
       pause_from: g.pause_from || null,
       pause_until: g.pause_until || null
     }));
-    el.textContent = "Configurazione caricata.";
+    el.textContent = "Configurazione caricata da GitHub.";
     el.className = "status ok";
     render();
   } catch (e) {
@@ -301,7 +364,7 @@ function render() {
       <div class="sub-panel">
         <h4>🔁 Orario settimanale ricorrente</h4>
         <p class="hint">Si ripete ogni settimana, per sempre. Ogni riga è un'azione indipendente
-          (puoi mettere giorni diversi per apertura e chiusura).</p>
+          (puoi mettere giorni diversi per apertura e chiusura). Scatta entro ~15 minuti dall'orario scelto.</p>
         ${actionsHtml}
         <button class="btn-ghost" style="margin-top:8px;" onclick="addAction('${g.id}')">+ Aggiungi azione</button>
       </div>
@@ -345,6 +408,39 @@ function formatLocal(isoString) {
   return d.toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" });
 }
 
+async function applyNow(groupId, action) {
+  const g = state.groups.find(x => x.id === groupId);
+  const statusId = `status-${groupId}`;
+  if (!g.chat_id) {
+    setStatus(statusId, "Imposta prima il Chat ID del gruppo (e salva).", false);
+    return;
+  }
+  setStatus(statusId, "Applico...", true);
+  try {
+    const chatId = Number(g.chat_id);
+    const permissions = action === "open" ? OPEN_PERMISSIONS : CLOSED_PERMISSIONS;
+    await tgCall("setChatPermissions", { chat_id: chatId, permissions });
+    const message = action === "open" ? g.open_message : g.close_message;
+    if (message) await tgCall("sendMessage", { chat_id: chatId, text: message });
+    setStatus(statusId, action === "open" ? "Gruppo aperto con successo." : "Gruppo chiuso con successo.", true);
+  } catch (e) {
+    setStatus(statusId, "Errore: " + e.message, false);
+  }
+}
+
+const OPEN_PERMISSIONS = {
+  can_send_messages: true, can_send_audios: true, can_send_documents: true,
+  can_send_photos: true, can_send_videos: true, can_send_video_notes: true,
+  can_send_voice_notes: true, can_send_polls: true, can_send_other_messages: true,
+  can_add_web_page_previews: true
+};
+const CLOSED_PERMISSIONS = {
+  can_send_messages: false, can_send_audios: false, can_send_documents: false,
+  can_send_photos: false, can_send_videos: false, can_send_video_notes: false,
+  can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false,
+  can_add_web_page_previews: false
+};
+
 async function suspendGroup(groupId) {
   const g = state.groups.find(x => x.id === groupId);
   const statusId = `status-${groupId}`;
@@ -377,7 +473,8 @@ async function suspendGroup(groupId) {
   setStatus(statusId, closeNow ? "Chiudo e salvo..." : "Programmo e salvo...", true);
   try {
     if (closeNow) {
-      await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action: "close" }) });
+      await tgCall("setChatPermissions", { chat_id: Number(g.chat_id), permissions: CLOSED_PERMISSIONS });
+      if (g.close_message) await tgCall("sendMessage", { chat_id: Number(g.chat_id), text: g.close_message });
     }
     await saveConfig();
     setStatus(statusId, closeNow
@@ -396,7 +493,8 @@ async function resumeGroup(groupId) {
   g.pause_until = null;
   setStatus(statusId, "Riapro e salvo...", true);
   try {
-    await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action: "open" }) });
+    await tgCall("setChatPermissions", { chat_id: Number(g.chat_id), permissions: OPEN_PERMISSIONS });
+    if (g.open_message) await tgCall("sendMessage", { chat_id: Number(g.chat_id), text: g.open_message });
     await saveConfig();
     setStatus(statusId, "Programmazione annullata, gruppo riaperto.", true);
     render();
@@ -405,24 +503,8 @@ async function resumeGroup(groupId) {
   }
 }
 
-async function applyNow(groupId, action) {
-  const g = state.groups.find(x => x.id === groupId);
-  const statusId = `status-${groupId}`;
-  if (!g.chat_id) {
-    setStatus(statusId, "Imposta prima il Chat ID del gruppo (e salva).", false);
-    return;
-  }
-  setStatus(statusId, "Applico...", true);
-  try {
-    await api("/api/action", { method: "POST", body: JSON.stringify({ chat_id: Number(g.chat_id), action }) });
-    setStatus(statusId, action === "open" ? "Gruppo aperto con successo." : "Gruppo chiuso con successo.", true);
-  } catch (e) {
-    setStatus(statusId, "Errore: " + e.message, false);
-  }
-}
-
 async function saveConfig() {
-  const el = document.getElementById("load-status");
+  const el = document.getElementById("save-status");
   const config = {
     timezone: state.timezone,
     groups: state.groups.map(g => ({
@@ -436,11 +518,19 @@ async function saveConfig() {
       pause_until: g.pause_until
     }))
   };
-  el.textContent = "Salvataggio...";
+  el.textContent = "Salvataggio su GitHub...";
   el.className = "status";
   try {
-    await api("/api/config", { method: "POST", body: JSON.stringify(config) });
-    el.textContent = "✔ Salvato. Il bot si aggiorna entro pochi secondi.";
+    // Rilegge lo sha più recente per evitare conflitti con il bot che gira in background.
+    const latest = await ghCall("GET");
+    currentFileSha = latest.sha;
+    await ghCall("PUT", {
+      message: "Aggiorna configurazione dal pannello",
+      content: utf8ToBase64(JSON.stringify(config, null, 2)),
+      sha: currentFileSha,
+      branch: GH_BRANCH
+    });
+    el.textContent = "✔ Salvato su GitHub. Il bot applica le modifiche entro ~15 minuti (o subito con i pulsanti immediati).";
     el.className = "status ok";
   } catch (e) {
     el.textContent = "Errore nel salvataggio: " + e.message;
@@ -453,20 +543,32 @@ async function fetchChatIds() {
   box.style.display = "block";
   box.textContent = "Recupero in corso...";
   try {
-    const chats = await api("/api/chat-ids");
-    if (chats.length === 0) {
+    const updates = await tgCall("getUpdates");
+    const seen = new Map();
+    for (const u of updates) {
+      const payload = u.message || u.channel_post || u.my_chat_member || u.edited_message;
+      const chat = payload && payload.chat;
+      if (chat && !seen.has(chat.id)) seen.set(chat.id, chat);
+    }
+    if (seen.size === 0) {
       box.textContent = "Nessuna chat trovata. Scrivi un messaggio nel gruppo (il bot deve essere già membro) e riprova.";
       return;
     }
-    box.innerHTML = chats.map(c =>
-      `chat_id: <code>${c.chat_id}</code> — ${c.title} (${c.type})`
+    box.innerHTML = [...seen.values()].map(c =>
+      `chat_id: <code>${c.id}</code> — ${c.title || c.username || "n/d"} (${c.type})`
     ).join("<br/>");
   } catch (e) {
     box.textContent = "Errore: " + e.message;
   }
 }
 
-loadConfig();
+window.addEventListener("DOMContentLoaded", () => {
+  const savedTg = localStorage.getItem("curfew_tg_token");
+  const savedGh = localStorage.getItem("curfew_gh_token");
+  if (savedTg) document.getElementById("tg-token").value = savedTg;
+  if (savedGh) document.getElementById("gh-token").value = savedGh;
+  if (savedGh) loadConfig();
+});
 </script>
 </body>
 </html>
