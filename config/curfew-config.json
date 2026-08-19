@@ -25,6 +25,31 @@
       "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
       "pause_from": null,
       "pause_until": null
+    },
+    {
+      "name": "Il Cerchio Chiuso | SDM🔒",
+      "chat_id": -1003819070810,
+      "enabled": true,
+      "actions": [
+        {
+          "action": "close",
+          "days": [
+            "sat"
+          ],
+          "time": "12:00"
+        },
+        {
+          "action": "open",
+          "days": [
+            "sun"
+          ],
+          "time": "20:00"
+        }
+      ],
+      "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 💙",
+      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
+      "pause_from": null,
+      "pause_until": null
     }
   ]
 }
