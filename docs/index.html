@@ -119,8 +119,15 @@
   <input type="password" id="gh-token" placeholder="ghp_... o github_pat_..." />
   <div class="row" style="margin-top:10px;">
     <button class="btn-ghost" onclick="loadConfig()">Carica configurazione</button>
+    <button class="btn-ghost" onclick="showHistory()">🕐 Versioni precedenti</button>
   </div>
   <div id="load-status" class="status"></div>
+  <div id="history-results" class="muted-box" style="display:none;"></div>
+  <div class="muted-box">
+    Se dopo un salvataggio i gruppi sembrano spariti, clicca <b>"🕐 Versioni precedenti"</b>:
+    ogni salvataggio resta sempre recuperabile da lì, puoi ripristinarlo da sola in autonomia,
+    senza bisogno d'aiuto.
+  </div>
   <div class="muted-box">
     Il token GitHub serve solo per leggere/scrivere <code>config/curfew-config.json</code> in questo
     repository. Si crea una volta sola su GitHub: Impostazioni account → Developer settings →
@@ -214,6 +221,24 @@ async function ghCall(method, body) {
   return data;
 }
 
+function applyConfigToState(config) {
+  state.timezone = config.timezone || "Europe/Rome";
+  state.groups = (config.groups || []).map(g => ({
+    id: uid(),
+    name: g.name || "",
+    chat_id: g.chat_id,
+    enabled: g.enabled !== false,
+    actions: g.actions && g.actions.length ? g.actions : [
+      { action: "close", days: [...DAY_CODES], time: "22:00" },
+      { action: "open", days: [...DAY_CODES], time: "07:00" }
+    ],
+    open_message: g.open_message || "",
+    close_message: g.close_message || "",
+    pause_from: g.pause_from || null,
+    pause_until: g.pause_until || null
+  }));
+}
+
 async function loadConfig() {
   const el = document.getElementById("load-status");
   el.textContent = "Caricamento...";
@@ -222,26 +247,65 @@ async function loadConfig() {
     const data = await ghCall("GET");
     currentFileSha = data.sha;
     const config = JSON.parse(base64ToUtf8(data.content));
-    state.timezone = config.timezone || "Europe/Rome";
-    state.groups = (config.groups || []).map(g => ({
-      id: uid(),
-      name: g.name || "",
-      chat_id: g.chat_id,
-      enabled: g.enabled !== false,
-      actions: g.actions && g.actions.length ? g.actions : [
-        { action: "close", days: [...DAY_CODES], time: "22:00" },
-        { action: "open", days: [...DAY_CODES], time: "07:00" }
-      ],
-      open_message: g.open_message || "",
-      close_message: g.close_message || "",
-      pause_from: g.pause_from || null,
-      pause_until: g.pause_until || null
-    }));
+    applyConfigToState(config);
+    document.getElementById("history-results").style.display = "none";
     el.textContent = "Configurazione caricata da GitHub.";
     el.className = "status ok";
     render();
   } catch (e) {
     el.textContent = "Errore nel caricamento: " + e.message;
+    el.className = "status err";
+  }
+}
+
+async function showHistory() {
+  const box = document.getElementById("history-results");
+  box.style.display = "block";
+  box.innerHTML = "Recupero cronologia...";
+  try {
+    const token = ghToken();
+    if (!token) throw new Error("Inserisci prima il token GitHub.");
+    const resp = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/commits?path=${GH_PATH}&sha=${GH_BRANCH}&per_page=15`,
+      { headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" } }
+    );
+    const commits = await resp.json();
+    if (!resp.ok) throw new Error(commits.message || `Errore GitHub (HTTP ${resp.status})`);
+    if (commits.length === 0) {
+      box.textContent = "Nessuna cronologia trovata.";
+      return;
+    }
+    box.innerHTML = "<b>Versioni precedenti salvate</b> (clicca per rivederla nel pannello, poi premi \"Salva modifiche\" per ripristinarla davvero):<br/><br/>" +
+      commits.map(c => {
+        const date = new Date(c.commit.author.date).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" });
+        const msg = c.commit.message.split("\n")[0];
+        return `<button class="btn-ghost" style="width:100%; text-align:left; margin-bottom:6px;" onclick="loadHistoryVersion('${c.sha}')">${date} — ${msg}</button>`;
+      }).join("");
+  } catch (e) {
+    box.innerHTML = "Errore: " + e.message;
+  }
+}
+
+async function loadHistoryVersion(sha) {
+  const el = document.getElementById("load-status");
+  el.textContent = "Carico questa versione precedente...";
+  el.className = "status";
+  try {
+    const token = ghToken();
+    const resp = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${sha}`,
+      { headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" } }
+    );
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.message || `Errore GitHub (HTTP ${resp.status})`);
+    const config = JSON.parse(base64ToUtf8(data.content));
+    applyConfigToState(config);
+    document.getElementById("history-results").style.display = "none";
+    el.textContent = "Versione precedente caricata (NON ancora salvata). Controlla i gruppi qui sotto, poi premi \"Salva modifiche\" per ripristinarla davvero, oppure \"Carica configurazione\" per annullare e tornare all'ultima versione.";
+    el.className = "status ok";
+    render();
+  } catch (e) {
+    el.textContent = "Errore: " + e.message;
     el.className = "status err";
   }
 }
@@ -518,6 +582,21 @@ async function saveConfig() {
       pause_until: g.pause_until
     }))
   };
+
+  if (config.groups.length === 0) {
+    const reallyEmpty = confirm(
+      "Stai per salvare una configurazione SENZA NESSUN GRUPPO: tutti i gruppi già " +
+      "salvati verranno cancellati. Se hai visto la lista vuota per un errore di " +
+      "caricamento, premi Annulla e ricarica la pagina invece di salvare.\n\n" +
+      "Vuoi davvero procedere e cancellare tutti i gruppi?"
+    );
+    if (!reallyEmpty) {
+      el.textContent = "Salvataggio annullato: nessun gruppo da salvare (probabile caricamento non riuscito).";
+      el.className = "status err";
+      return;
+    }
+  }
+
   el.textContent = "Salvataggio su GitHub...";
   el.className = "status";
   try {
