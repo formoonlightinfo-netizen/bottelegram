@@ -2,15 +2,29 @@
   "timezone": "Europe/Rome",
   "groups": [
     {
-      "name": "Prova",
-      "chat_id": -1004375288901,
+      "name": "Il Cerchio Chiuso | ODC🔒",
+      "chat_id": -1003054912519,
       "enabled": true,
       "actions": [
-        { "action": "close", "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], "time": "22:00" },
-        { "action": "open", "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], "time": "07:00" }
+        {
+          "action": "close",
+          "days": [
+            "sat"
+          ],
+          "time": "12:00"
+        },
+        {
+          "action": "open",
+          "days": [
+            "sun"
+          ],
+          "time": "20:00"
+        }
       ],
-      "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 🌚",
-      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 🦋🌚"
+      "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 💙",
+      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
+      "pause_from": null,
+      "pause_until": null
     }
   ]
 }
