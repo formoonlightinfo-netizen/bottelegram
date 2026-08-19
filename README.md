@@ -17,7 +17,7 @@ statica che parla direttamente con Telegram e con GitHub dal browser.
 - **`.github/workflows/scheduler.yml`** — fa girare `curfew_bot.py --tick`
   ogni ~15 minuti su GitHub Actions (gratuito), e salva lo stato aggiornato
   nel repository.
-- **`web/index.html`** — il pannello di controllo, una pagina statica senza
+- **`docs/index.html`** — il pannello di controllo, una pagina statica senza
   server: gestisci gruppi/orari/messaggi e premi "Salva modifiche" (scrive
   direttamente su GitHub), oppure agisci subito con "Apri ora/Chiudi ora"
   (chiama Telegram direttamente dal browser).
@@ -50,8 +50,7 @@ quelli pubblici) — nessun addebito, nessuna carta di credito richiesta.
 
 1. Nel repository, **Settings → Pages**.
 2. In "Source" scegli **"Deploy from a branch"**, branch
-   `claude/telegram-curfew-bot-e6zdgp`, cartella `/web` (o `/root` se
-   `index.html` è nella radice — verifica il percorso).
+   `claude/telegram-curfew-bot-e6zdgp`, cartella **`/docs`**.
 3. Salva: dopo un minuto GitHub mostra il link pubblico, del tipo
    `https://formoonlightinfo-netizen.github.io/bottelegram/`. Salvalo nei
    preferiti del telefono.
