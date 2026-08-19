@@ -38,13 +38,20 @@
   label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
   input[type=text], input[type=password], input[type=number], input[type=time], input[type=datetime-local], textarea, select {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 10px;
     background: #0d0f15;
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text);
     font-size: 1rem;
+    color-scheme: dark;
   }
+  /* iOS a volte ignora width sul widget nativo datetime-local: lo si contiene
+     in una striscia scorrevole invece di lasciarlo sforare dalla pagina. */
+  .datetime-wrap { max-width: 100%; overflow-x: auto; }
+  .datetime-wrap input[type=datetime-local] { min-width: 100%; }
   textarea { resize: vertical; min-height: 60px; }
   button {
     cursor: pointer;
@@ -260,6 +267,10 @@ async function loadConfig() {
 
 async function showHistory() {
   const box = document.getElementById("history-results");
+  if (box.style.display === "block") {
+    box.style.display = "none";
+    return;
+  }
   box.style.display = "block";
   box.innerHTML = "Recupero cronologia...";
   try {
@@ -275,7 +286,14 @@ async function showHistory() {
       box.textContent = "Nessuna cronologia trovata.";
       return;
     }
-    box.innerHTML = "<b>Versioni precedenti salvate</b> (clicca per rivederla nel pannello, poi premi \"Salva modifiche\" per ripristinarla davvero):<br/><br/>" +
+    box.innerHTML = `
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <b>Versioni precedenti salvate</b>
+        <button class="btn-ghost" onclick="document.getElementById('history-results').style.display='none';">Chiudi ✕</button>
+      </div>
+      <p style="margin:0 0 10px; color:var(--muted); font-size:0.78rem;">
+        Clicca una versione per rivederla nel pannello, poi premi "Salva modifiche" per ripristinarla davvero.
+      </p>` +
       commits.map(c => {
         const date = new Date(c.commit.author.date).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" });
         const msg = c.commit.message.split("\n")[0];
@@ -448,9 +466,9 @@ function render() {
           </div>
         ` : `
           <label style="margin-top:0;">Chiude il (vuoto = subito)</label>
-          <input type="datetime-local" id="pause-from-${g.id}" />
+          <div class="datetime-wrap"><input type="datetime-local" id="pause-from-${g.id}" /></div>
           <label>Riapre il</label>
-          <input type="datetime-local" id="pause-until-${g.id}" />
+          <div class="datetime-wrap"><input type="datetime-local" id="pause-until-${g.id}" /></div>
           <button class="btn-close" style="width:100%; margin-top:10px;" onclick="suspendGroup('${g.id}')">Programma</button>
         `}
       </div>
