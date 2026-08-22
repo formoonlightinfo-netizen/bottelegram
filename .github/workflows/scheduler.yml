@@ -1,8 +1,6 @@
 name: Curfew scheduler tick
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -43,8 +41,9 @@ jobs:
               exit 0
             fi
             echo "Push fallito (tentativo $i), riprovo dopo un riallineamento..."
+            git rebase --abort 2>/dev/null || true
             git fetch origin "$GITHUB_REF_NAME"
-            git rebase "origin/$GITHUB_REF_NAME"
+            git rebase -X theirs "origin/$GITHUB_REF_NAME"
             sleep $((RANDOM % 5 + 1))
           done
           echo "Push definitivamente fallito dopo 5 tentativi."
