@@ -122,15 +122,33 @@ def open_permissions_for(group: dict) -> ChatPermissions:
     )
 
 
+async def _retry_telegram_call(coro_factory, *, attempts: int = 3, base_delay: float = 3.0):
+    """Riprova una chiamata Telegram su errori di rete transitori (es. timeout).
+
+    coro_factory è una funzione senza argomenti che restituisce la coroutine
+    da eseguire, così ogni tentativo crea una nuova richiesta HTTP pulita.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return await coro_factory()
+        except TelegramError as e:
+            if attempt == attempts:
+                raise
+            log.warning("Chiamata Telegram fallita (tentativo %d/%d): %s. Riprovo...", attempt, attempts, e)
+            await asyncio.sleep(base_delay * attempt)
+
+
 async def open_group(bot: Bot, group: dict) -> None:
     chat_id = group["chat_id"]
     name = group.get("name", str(chat_id))
     try:
-        await bot.set_chat_permissions(chat_id=chat_id, permissions=open_permissions_for(group))
+        await _retry_telegram_call(
+            lambda: bot.set_chat_permissions(chat_id=chat_id, permissions=open_permissions_for(group))
+        )
         log.info("Gruppo '%s' aperto", name)
         message = group.get("open_message")
         if message:
-            await bot.send_message(chat_id=chat_id, text=message)
+            await _retry_telegram_call(lambda: bot.send_message(chat_id=chat_id, text=message))
     except TelegramError as e:
         log.error("Errore durante l'apertura del gruppo '%s' (%s): %s", name, chat_id, e)
 
@@ -139,11 +157,13 @@ async def close_group(bot: Bot, group: dict) -> None:
     chat_id = group["chat_id"]
     name = group.get("name", str(chat_id))
     try:
-        await bot.set_chat_permissions(chat_id=chat_id, permissions=CLOSED_PERMISSIONS)
+        await _retry_telegram_call(
+            lambda: bot.set_chat_permissions(chat_id=chat_id, permissions=CLOSED_PERMISSIONS)
+        )
         log.info("Gruppo '%s' chiuso", name)
         message = group.get("close_message")
         if message:
-            await bot.send_message(chat_id=chat_id, text=message)
+            await _retry_telegram_call(lambda: bot.send_message(chat_id=chat_id, text=message))
     except TelegramError as e:
         log.error("Errore durante la chiusura del gruppo '%s' (%s): %s", name, chat_id, e)
 
