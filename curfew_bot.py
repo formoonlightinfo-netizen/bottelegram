@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 
 from telegram import Bot, ChatPermissions
 from telegram.error import TelegramError
+from telegram.request import HTTPXRequest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -283,9 +284,15 @@ async def main() -> None:
         raise SystemExit(1)
 
     config = load_config()
-    bot = Bot(token=token)
-    me = await bot.get_me()
-    log.info("Bot avviato come @%s", me.username)
+    request = HTTPXRequest(connect_timeout=20.0, read_timeout=20.0, write_timeout=20.0, pool_timeout=20.0)
+    bot = Bot(token=token, request=request)
+    try:
+        me = await bot.get_me()
+        log.info("Bot avviato come @%s", me.username)
+    except TelegramError as exc:
+        # Non essenziale: se Telegram risponde lento solo su questa verifica
+        # non ha senso far fallire l'intero tick, si procede comunque.
+        log.warning("Verifica identità bot fallita (%s), procedo comunque", exc)
 
     if args.open is not None:
         await run_manual_action(bot, config, args.open, "open")
