@@ -174,6 +174,10 @@ const GH_PATH = "config/curfew-config.json";
 
 let state = { timezone: "Europe/Rome", groups: [] };
 let currentFileSha = null;
+// true solo dopo un caricamento riuscito da GitHub in QUESTA sessione di pagina.
+// Senza questo, "Salva modifiche" scriverebbe uno stato mai davvero letto
+// (es. appena cambiato il token) sopra ai dati veri: è successo due volte.
+let configLoadedThisSession = false;
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -185,7 +189,13 @@ function saveTokensLocally() {
   localStorage.setItem("curfew_gh_token", ghToken());
 }
 document.getElementById("tg-token").addEventListener("input", saveTokensLocally);
-document.getElementById("gh-token").addEventListener("input", saveTokensLocally);
+document.getElementById("gh-token").addEventListener("input", () => {
+  saveTokensLocally();
+  // Un token nuovo invalida qualunque caricamento precedente: va ricaricato
+  // prima di poter salvare di nuovo, altrimenti si rischia di sovrascrivere
+  // i gruppi veri con uno stato non aggiornato.
+  configLoadedThisSession = false;
+});
 
 function utf8ToBase64(str) {
   return btoa(unescape(encodeURIComponent(str)));
@@ -255,6 +265,7 @@ async function loadConfig() {
     currentFileSha = data.sha;
     const config = JSON.parse(base64ToUtf8(data.content));
     applyConfigToState(config);
+    configLoadedThisSession = true;
     document.getElementById("history-results").style.display = "none";
     el.textContent = "Configurazione caricata da GitHub.";
     el.className = "status ok";
@@ -318,6 +329,7 @@ async function loadHistoryVersion(sha) {
     if (!resp.ok) throw new Error(data.message || `Errore GitHub (HTTP ${resp.status})`);
     const config = JSON.parse(base64ToUtf8(data.content));
     applyConfigToState(config);
+    configLoadedThisSession = true;
     document.getElementById("history-results").style.display = "none";
     el.textContent = "Versione precedente caricata (NON ancora salvata). Controlla i gruppi qui sotto, poi premi \"Salva modifiche\" per ripristinarla davvero, oppure \"Carica configurazione\" per annullare e tornare all'ultima versione.";
     el.className = "status ok";
@@ -587,6 +599,15 @@ async function resumeGroup(groupId) {
 
 async function saveConfig() {
   const el = document.getElementById("save-status");
+
+  if (!configLoadedThisSession) {
+    el.textContent = "Salvataggio bloccato: premi prima \"Carica configurazione\" (serve dopo " +
+      "ogni apertura del pannello o cambio di token, per non rischiare di sovrascrivere i gruppi veri " +
+      "con dati non aggiornati).";
+    el.className = "status err";
+    return;
+  }
+
   const config = {
     timezone: state.timezone,
     groups: state.groups.map(g => ({
