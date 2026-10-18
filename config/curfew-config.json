@@ -41,9 +41,9 @@
         {
           "action": "open",
           "days": [
-            "sun"
+            "mon"
           ],
-          "time": "20:00"
+          "time": "09:00"
         }
       ],
       "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 💙",
