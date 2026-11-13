@@ -9,20 +9,20 @@
         {
           "action": "close",
           "days": [
-            "sat"
+            "fri"
           ],
-          "time": "12:00"
+          "time": "20:00"
         },
         {
           "action": "open",
           "days": [
-            "sun"
+            "mon"
           ],
-          "time": "20:00"
+          "time": "09:00"
         }
       ],
       "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 💙",
-      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
+      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà Lunedì mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
       "pause_from": null,
       "pause_until": null
     },
@@ -34,20 +34,20 @@
         {
           "action": "close",
           "days": [
-            "sat"
+            "fri"
           ],
-          "time": "12:00"
+          "time": "20:00"
         },
         {
           "action": "open",
           "days": [
-            "sun"
+            "mon"
           ],
-          "time": "20:00"
+          "time": "09:00"
         }
       ],
       "open_message": "PAUSA ENERGETICA TERMINATA⚡️\n\nDa questo momento è possibile inviare nuovamente messaggi sul gruppo. \n\nSbizzarritevi 💙",
-      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà domani sera alle 20:00 in previsione della Live o Lunedì Mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
+      "close_message": "PAUSA ENERGETICA ATTIVA⚡️\n\nDa questo momento non è possibile inviare messaggi sul gruppo. Il gruppo riaprirà Lunedì mattina ore 9:00.\n\nBuon Detox Energetico a tutti 💙",
       "pause_from": null,
       "pause_until": null
     }
